@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import { Card, SectionTitle, Input, Select, Textarea, Button, KnowledgeItem } from '../components/UI';
+import { SectionTitle, Input, Select, Textarea, Button, KnowledgeItem } from '../components/UI';
+import { getConfig, saveConfig } from '../utils/api';
 
 interface Source {
   icon: string;
@@ -33,38 +34,45 @@ const KNOWLEDGE: KnowledgeEntry[] = [
 
 export default function TrainBot() {
   const [activeSource, setActiveSource] = useState(0);
-  const [url, setUrl] = useState('https://acmecorp.com');
-  const [instructions, setInstructions] = useState(
-    'Always be helpful and professional. Focus on our product features and pricing. For refund requests, collect the order number first.'
-  );
-  const [trained, setTrained] = useState(false);
-  const [orgData, setOrgData] = useState<Record<string, unknown> | null>(null);
-  const [orgDataLoading, setOrgDataLoading] = useState(true);
-  const [orgDataError, setOrgDataError] = useState<string | null>(null);
+  const [url, setUrl] = useState('');
+  const [crawlDepth, setCrawlDepth] = useState('All pages (recommended)');
+  const [instructions, setInstructions] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { getToken } = useAuth();
 
   useEffect(() => {
-    async function fetchOrgData() {
-      try {
-        const token = await getToken();
-        const res = await fetch('https://chatbot-gen-server-fe894938f490.herokuapp.com/api/org-data', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const json = await res.json();
-        setOrgData(json.data ?? json);
-      } catch (err: unknown) {
-        setOrgDataError(err instanceof Error ? err.message : 'Failed to load');
-      } finally {
-        setOrgDataLoading(false);
-      }
-    }
-    fetchOrgData();
+    getConfig(getToken)
+      .then(cfg => {
+        setUrl(cfg.train_url ?? 'https://acmecorp.com');
+        setCrawlDepth(cfg.crawl_depth ?? 'All pages (recommended)');
+        setInstructions(
+          cfg.instructions ??
+          'Always be helpful and professional. Focus on our product features and pricing. For refund requests, collect the order number first.'
+        );
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
   }, [getToken]);
 
-  const handleTrain = () => {
-    setTrained(true);
-    setTimeout(() => setTrained(false), 3000);
+  const handleTrain = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await saveConfig(getToken, {
+        train_url: url,
+        crawl_depth: crawlDepth,
+        instructions,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -96,7 +104,7 @@ export default function TrainBot() {
         {activeSource === 0 && (
           <>
             <Input label="Website URL" value={url} onChange={e => setUrl(e.target.value)} />
-            <Select label="Crawl Depth">
+            <Select label="Crawl Depth" value={crawlDepth} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCrawlDepth(e.target.value)}>
               <option>All pages (recommended)</option>
               <option>Homepage only</option>
               <option>Custom pages</option>
@@ -127,44 +135,21 @@ export default function TrainBot() {
           onChange={e => setInstructions(e.target.value)}
         />
 
+        {error && (
+          <div className="mt-2 text-[13px] text-red-400">{error}</div>
+        )}
+
         <div className="flex gap-2.5 mt-4">
           <Button variant="primary" onClick={handleTrain} fullWidth>
-            {trained ? '✓ Training Started!' : '⚡ Start Training'}
+            {saved ? '✓ Saved!' : saving ? 'Saving...' : loading ? 'Loading...' : '⚡ Start Training'}
           </Button>
           <Button variant="ghost">Preview</Button>
         </div>
       </div>
 
-      {/* Right: org data + knowledge base */}
+      {/* Right: knowledge base */}
       <div>
-        <SectionTitle>Organization Data</SectionTitle>
-        <Card>
-          {orgDataLoading && (
-            <div className="text-[13px] text-gray-500 py-2">Loading...</div>
-          )}
-          {orgDataError && (
-            <div className="text-[13px] text-red-400 py-2">{orgDataError}</div>
-          )}
-          {orgData && !orgDataLoading && (
-            <div className="flex flex-col gap-2">
-              {Object.entries(orgData).map(([key, value]) => (
-                <div key={key} className="flex gap-3 text-[13px]">
-                  <span className="text-gray-500 capitalize shrink-0 w-32 truncate">
-                    {key.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-gray-200 flex-1 break-all">
-                    {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-          {!orgDataLoading && !orgDataError && !orgData && (
-            <div className="text-[13px] text-gray-500 py-2">No organization data found.</div>
-          )}
-        </Card>
-
-        <SectionTitle style={{ marginTop: '1.5rem' }}>Knowledge Base</SectionTitle>
+        <SectionTitle>Knowledge Base</SectionTitle>
         <div className="flex flex-col gap-2">
           {KNOWLEDGE.map(k => <KnowledgeItem key={k.name} {...k} />)}
         </div>

@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Card, SectionTitle, Input, Textarea, Toggle } from '../components/UI';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
+import { Card, SectionTitle, Input, Textarea, Toggle, Button } from '../components/UI';
 import ChatPreview from '../components/ChatPreview';
+import { getConfig, saveConfig } from '../utils/api';
 
 const COLORS: string[] = ['#7c27cc', '#1a6cff', '#059669', '#dc2626', '#d97706', '#db2777', '#1e293b'];
 const EMOJIS: string[] = ['🤖', '💬', '⚡', '🎯', '🚀', '✨'];
@@ -35,8 +37,59 @@ export default function Customize() {
   const [color, setColor]       = useState('#7c27cc');
   const [position, setPosition] = useState(0);
   const [toggles, setToggles]   = useState<TogglesState>({ typing: true, email: false, handoff: true, history: true, suggested: true });
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    getConfig(getToken)
+      .then(cfg => {
+        if (cfg.bot_name)        setBotName(cfg.bot_name);
+        if (cfg.greeting)        setGreeting(cfg.greeting);
+        if (cfg.avatar)          setAvatar(cfg.avatar);
+        if (cfg.primary_color)   setColor(cfg.primary_color);
+        if (cfg.widget_position) {
+          const idx = POSITIONS.indexOf(cfg.widget_position);
+          if (idx !== -1) setPosition(idx);
+        }
+        setToggles({
+          typing:    cfg.show_typing_indicator ?? true,
+          email:     cfg.collect_email         ?? false,
+          handoff:   cfg.human_handoff         ?? true,
+          history:   cfg.chat_history          ?? true,
+          suggested: cfg.suggested_prompts     ?? true,
+        });
+      })
+      .catch(console.error);
+  }, [getToken]);
 
   const flip = (key: keyof TogglesState) => setToggles(t => ({ ...t, [key]: !t[key] }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await saveConfig(getToken, {
+        bot_name:              botName,
+        greeting,
+        avatar,
+        primary_color:         color,
+        widget_position:       POSITIONS[position],
+        show_typing_indicator: toggles.typing,
+        collect_email:         toggles.email,
+        human_handoff:         toggles.handoff,
+        chat_history:          toggles.history,
+        suggested_prompts:     toggles.suggested,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-[1fr_380px] gap-7 items-start fade-up max-[1000px]:grid-cols-1">
@@ -109,6 +162,19 @@ export default function Customize() {
             </div>
           ))}
         </Card>
+
+        {error && (
+          <div className="mt-3 text-[13px] text-red-400">{error}</div>
+        )}
+
+        <Button
+          variant="primary"
+          fullWidth
+          onClick={handleSave}
+          style={{ marginTop: 16 }}
+        >
+          {saved ? '✓ Saved!' : saving ? 'Saving...' : '💾 Save Changes'}
+        </Button>
       </div>
 
       {/* Live Preview */}

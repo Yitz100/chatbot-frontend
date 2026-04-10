@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { UserButton, useUser, useOrganization } from '@clerk/clerk-react';
+import { UserButton, useUser, useOrganization, useAuth } from '@clerk/clerk-react';
+import { syncUser } from '../utils/api';
 
 interface NavItem {
   label: string;
@@ -39,7 +40,18 @@ export default function Layout() {
   const navigate = useNavigate();
   const { user } = useUser();
   const { organization, membership } = useOrganization();
+  const { getToken } = useAuth();
   const title = PAGE_TITLES[location.pathname] ?? 'ScaleAway';
+  const synced = useRef(false);
+
+  useEffect(() => {
+    if (!user || !organization || synced.current) return;
+    synced.current = true;
+    syncUser(getToken, {
+      userName: user.fullName ?? user.emailAddresses[0]?.emailAddress ?? '',
+      orgName: organization.name,
+    }).catch(console.error);
+  }, [user, organization, getToken]);
 
   return (
     <div className="flex h-screen overflow-hidden">
