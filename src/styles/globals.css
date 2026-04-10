@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --purple-900: #1a0533;
+  --purple-800: #2d0a52;
+  --purple-700: #420f75;
+  --purple-600: #5b17a3;
+  --purple-500: #7c27cc;
+  --purple-400: #9f52e0;
+  --purple-300: #c28ef0;
+  --purple-200: #e1c7f9;
+  --purple-100: #f3e8fd;
+
+  --blue-600: #0f4bbf;
+  --blue-500: #1a6cff;
+  --blue-400: #4d8fff;
+  --blue-300: #85b4ff;
+  --blue-100: #e8f0ff;
+
+  --gray-950: #0d0d10;
+  --gray-900: #13121a;
+  --gray-800: #1e1c28;
+  --gray-700: #2a2838;
+  --gray-600: #3d3a52;
+  --gray-500: #5a5674;
+  --gray-400: #8a86a8;
+  --gray-300: #b8b5d0;
+  --gray-200: #e2e0ef;
+  --gray-100: #f5f4fb;
+
+  --green: #4ade80;
+  --red: #f87171;
+  --amber: #fbbf24;
+
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 20px;
+
+  --sidebar-w: 220px;
+  --topbar-h: 60px;
+
+  --transition: 0.15s ease;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--gray-950);
+  color: white;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+input, textarea, select {
+  font-family: var(--font-body);
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gray-700); border-radius: 2px; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up {
+  animation: fadeUp 0.22s ease both;
+}
