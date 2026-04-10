@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { Card, SectionTitle, Input, Button, CodeBlock } from '../components/UI';
+import { getConfig, saveConfig } from '../utils/api';
 
 interface Channel {
   icon: string;
@@ -40,12 +42,45 @@ const STEPS: Step[] = [
 export default function Deploy() {
   const [selected, setSelected]   = useState(0);
   const [domains, setDomains]     = useState(['acmecorp.com', '']);
+  const [saving, setSaving]       = useState(false);
   const [published, setPublished] = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    getConfig(getToken)
+      .then(cfg => {
+        if (cfg.deployment_channel) {
+          const idx = CHANNELS.findIndex(c => c.title === cfg.deployment_channel);
+          if (idx !== -1) setSelected(idx);
+        }
+        if (cfg.allowed_domains && cfg.allowed_domains.length > 0) {
+          setDomains([...cfg.allowed_domains, '']);
+        }
+      })
+      .catch(console.error);
+  }, [getToken]);
 
   const updateDomain = (i: number, v: string) => {
     const d = [...domains];
     d[i] = v;
     setDomains(d);
+  };
+
+  const handlePublish = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await saveConfig(getToken, {
+        deployment_channel: CHANNELS[selected].title,
+        allowed_domains: domains.filter(d => d.trim() !== ''),
+      });
+      setPublished(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to publish');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -121,18 +156,22 @@ export default function Deploy() {
             ))}
           </div>
 
+          {error && (
+            <div className="mt-3 text-[13px] text-red-400">{error}</div>
+          )}
+
           <Button
             variant="blue"
             fullWidth
             style={{ marginTop: 20, padding: '14px', fontSize: 14 }}
-            onClick={() => setPublished(true)}
+            onClick={handlePublish}
           >
-            {published ? '✓ Bot is Live!' : '⚡ Publish Bot'}
+            {published ? '✓ Bot is Live!' : saving ? 'Publishing...' : '⚡ Publish Bot'}
           </Button>
 
           {published && (
             <div className="mt-3.5 bg-green/10 border border-green/25 rounded-sm px-3.5 py-3 text-[13px] text-green">
-              🎉 Your bot is now live at <strong>acmecorp.com</strong>
+              🎉 Your bot is now live on <strong>{CHANNELS[selected].title}</strong>
             </div>
           )}
         </div>
